@@ -51,6 +51,9 @@ def github_auth(request):
     user_info = r.json()
     social_user = list(SocialUser.objects.filter(github_id=user_info['id']))
 
+    if not isinstance(user_info['name'], str):
+        user_info['name'] = user_info['login']
+
     if len(social_user) == 0:
         new_user = User.objects.create_user(user_info['login'])
         social_user = SocialUser(
@@ -60,15 +63,18 @@ def github_auth(request):
             github_name=user_info['name'],
             github_avatar=user_info['avatar_url']
         )
-        social_user.save()
-        login(request, new_user)
-        return redirect('/')
+        user = new_user
     else:
         social_user = social_user[0]
         social_user.github_login = user_info['login']
         social_user.github_name=user_info['name']
         social_user.github_avatar=user_info['avatar_url']
-        social_user.save()
         user = social_user.user
-        login(request, user)
-        return redirect('/')
+
+    login(request, user)
+
+    if isinstance(user_info['email'], str):
+        user.email = user_info['email']
+    user.save()
+    social_user.save()
+    return redirect('/')
